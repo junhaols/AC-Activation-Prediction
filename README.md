@@ -156,4 +156,4 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 
 ## Contact
 
-For questions about the code or methodology, please open an issue or contact the authors.
+For questions about the code or methodology, please open an issue or contact the authors (junhaol@mail.bnu.edu.cn).
