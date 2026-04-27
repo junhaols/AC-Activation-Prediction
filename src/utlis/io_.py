@@ -100,7 +100,7 @@ def Corr(x, y):
 def jointplot_fitlinear(x, y):
     plt.figure(figsize=(20,16))
     sns.jointplot(x = x,y = y, kind = 'reg',scatter_kws={"s": 8})
-#sns.regplot(x='LL_LPAC_Math_Corr',y='ReadEng_AgeAdj',data=df, color='red', scatter_kws={"s": 8}),不显示分布信息
+#sns.regplot(x='LL_LPAC_Math_Corr',y='ReadEng_AgeAdj',data=df, color='red', scatter_kws={"s": 8})  # without marginal distributions
 
 ###################################### Extract top N in a array ##############################
 # Extract top N element in a array and set others to 0.
