@@ -1,159 +1,149 @@
 # AC-Activation-Prediction
 
-A machine learning project for predicting auditory cortex (AC) activation patterns during language tasks using Ridge regression on neuroimaging data from the Human Connectome Project.
+A neuroimaging machine-learning pipeline that predicts auditory-cortex (AC) activation patterns during language tasks using Ridge regression on Human Connectome Project data, plus a complete R plotting pipeline that reproduces every figure in the paper.
 
 ## Overview
 
-This project implements vertex-level prediction of brain activation in the auditory cortex during language processing tasks. Using multi-modal neuroimaging features from 766 subjects, the model combines functional connectivity, structural, and diffusion imaging data to predict task-evoked brain activation patterns.
+Vertex-level prediction of task-evoked brain activation in the auditory cortex. Multi-modal features (functional connectivity, cortical structure, diffusion MRI) from 766 HCP subjects are combined and passed through nested cross-validated Ridge regression. The repo contains:
 
-## Quick Start
-
-### Environment Setup
-```bash
-# Create and activate virtual environment
-conda create -n ac-prediction python=3.9
-conda activate ac-prediction
-
-# Or using uv
-uv venv ac-prediction
-source ac-prediction/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
-```
-
-### Running the Analysis
-```bash
-# Run main prediction pipeline
-cd src && python RidgeVert.py
-
-# Run weight extraction (for model interpretation)
-cd src && python -c "from RidgeVert import run_local_weights; run_local_weights()"
-```
+- **Python pipeline** (`src/`) — feature integration, nested CV, prediction, weight extraction.
+- **R plotting pipeline** (`scripts/plots/`) — 12 scripts that reproduce all main and supplementary figures from pre-aggregated CSV statistics.
 
 ## Project Structure
 
 ```
 AC-Activation-Prediction/
 ├── src/
-│   ├── RidgeVert.py         # Main optimized Ridge regression pipeline
-│   └── utlis/
-│       └── io_.py           # Neuroimaging I/O and utility functions
-├── raw/                     # Input data directory
-│   ├── LANGUAGE/           # Task activation data (.pkl files)
-│   ├── PAC_Features/       # Brain feature data (.pkl files)
-│   ├── subjs/              # Subject metadata (.mat files)
-│   └── stat_data/          # Statistical summary data
-├── results/                 # Output directory
-│   └── Ridge_766/          # Prediction results and model weights
-└── requirements.txt         # Python dependencies
+│   ├── RidgeVert.py             # Main Ridge regression pipeline (parallel, progress-tracked)
+│   └── utlis/io_.py             # Neuroimaging I/O and utilities
+├── scripts/
+│   └── plots/                   # R figure-reproduction scripts (Fig 2-7, Fig S1-S4)
+│       ├── Plot-Fig2-B.R / Plot-Fig2-D.R
+│       ├── Plot-Fig3-A.R / Plot-Fig3-B.R
+│       ├── Plot-Fig5.R / Plot-Fig5-circle.R
+│       ├── Plot-Fig6.R          # uses geom_paired_raincloud.R helper
+│       ├── Plot-Fig7.R
+│       ├── Plot-Fig_S1.R ... Plot-Fig_S4.R
+│       └── geom_paired_raincloud.R
+├── raw/                         # Input data (gitignored except .gitkeeps)
+│   ├── LANGUAGE/                # Task activation data (.pkl)
+│   ├── PAC_Features/            # Brain features (.pkl)
+│   ├── subjs/                   # Subject metadata (.mat)
+│   ├── stat_data/               # Aggregated stats (DataForStats766.csv)
+│   └── figs_csv/                # Per-figure CSV inputs for R scripts
+├── results/                     # Python pipeline outputs (gitignored)
+│   └── Ridge_766/               # Predictions, weights, metrics
+├── papers/figures/              # Final figure artifacts (gitignored)
+├── tests/                       # Plot-script smoke-test outputs (gitignored)
+├── requirements.txt             # Python dependencies
+└── README.md
 ```
+
+## Quick Start
+
+### 1. Python pipeline
+
+```bash
+# Create venv and install
+uv venv ac-prediction && source ac-prediction/bin/activate
+uv pip install -r requirements.txt
+
+# Run prediction
+cd src && python RidgeVert.py
+
+# Extract model weights for interpretation
+cd src && python -c "from RidgeVert import run_local_weights; run_local_weights()"
+```
+
+### 2. R figure pipeline
+
+```bash
+# From project root, run any of the 12 scripts:
+Rscript scripts/plots/Plot-Fig3-A.R
+
+# Or run them all (mirrors the test-harness used during development):
+for f in scripts/plots/Plot-*.R; do Rscript "$f"; done
+```
+
+Each script auto-resolves `PROJECT_ROOT`, reads from `raw/figs_csv/`, and writes PDFs/PNGs/TIFFs to `papers/figures/raw/Fig{N}/`.
 
 ## Methodology
 
 ### Data Sources
-- **Subjects**: 766 participants from Human Connectome Project (HCP)
-- **Tasks**: Language processing tasks (Story-Math, Mean activation)
-- **Brain Regions**: Left and Right Primary Auditory Cortex (LPAC/RPAC)
+
+- **Subjects**: 766 participants from the Human Connectome Project (HCP).
+- **Tasks**: Language tasks (Story-Math contrast, Mean speech-vs-baseline activation).
+- **Regions**: Left and Right peri-Sylvian / Primary Auditory Cortex (LPAC, RPAC).
 
 ### Features
-- **Functional Connectivity**: Fisher-Z transformed correlation matrices (`fisherZ`)
-- **Structural Features**: Cortical area, thickness, myelination (`area`, `thick`, `myelin`)
-- **Diffusion Features**: NODDI metrics (`NDI`, `ODI`, `ISO`)
-- **FC Strength**: Functional connectivity strength measures (`FCs`)
+
+| Modality | Features |
+|---|---|
+| Functional connectivity | Fisher-Z FC maps (`fisherZ`), FC strength (`FCs`) |
+| Structural | Cortical area, thickness, myelin (`area`, `thick`, `myelin`) |
+| Diffusion (NODDI) | `NDI`, `ODI`, `ISO` |
 
 ### Machine Learning Pipeline
-1. **Data Integration**: Combines multi-modal features at vertex level
-2. **Cross-Validation**: 5-fold nested CV with subject sorting by mean activation
-3. **Hyperparameter Optimization**: Ridge regression alpha tuning (2^-10 to 2^5)
-4. **Evaluation**: Correlation, MAE, R², NRMSE metrics per subject
 
-## Key Features
+1. **Data integration** — multi-modal features concatenated at vertex level per subject.
+2. **Cross-validation** — 5-fold nested CV with subjects sorted by mean activation.
+3. **Hyperparameter search** — Ridge `alpha` ∈ `2^-10 … 2^5` (inner loop).
+4. **Evaluation** — correlation, MAE, R², NRMSE per subject (outer loop).
 
-- **Vertex-Level Analysis**: Fine-grained prediction at brain surface vertices
-- **Multi-Modal Integration**: Combines functional, structural, and diffusion MRI data
-- **Nested Cross-Validation**: Robust model evaluation with hyperparameter optimization
-- **Optimized Performance**: Memory-efficient processing with progress tracking
-- **Reproducible Results**: Consistent subject sorting and random state management
+## Figure Reproduction
 
-## Results
+| Figure | Script | Output(s) |
+|---|---|---|
+| Fig 2B | `Plot-Fig2-B.R` | HCP raincloud (4 contrasts, paired t-tests) |
+| Fig 2D | `Plot-Fig2-D.R` | Validation paired violin (run-1 / run-2) |
+| Fig 3A | `Plot-Fig3-A.R` | Feature-combination boxplot (FCMap / Structs / FCMap+Structs) |
+| Fig 3B | `Plot-Fig3-B.R` | Cross-task ridge plots (own-correlation; 3 variants) |
+| Fig 5  | `Plot-Fig5.R` | Brain-measure scatter plots + behaviour scatter (PicVocab, g) |
+| Fig 5  | `Plot-Fig5-circle.R` | Circular bar chart of measure-PS correlations |
+| Fig 6  | `Plot-Fig6.R` | LI raincloud + LI scatters + LI circular bar |
+| Fig 7  | `Plot-Fig7.R` | 4-group panel (cognition / averages / LIs) |
+| Fig S1 | `Plot-Fig_S1.R` | Per-fold scatter plots (10 folds) |
+| Fig S2 | `Plot-Fig_S2.R` | Per-run validation scatter plots |
+| Fig S3 | `Plot-Fig_S3.R` | DiceAUC raincloud across 4 contrasts |
+| Fig S4 | `Plot-Fig_S4.R` | Cross-task ridge plots (language-based correlation) |
 
-The model generates:
-- **Prediction Accuracy**: Subject-level correlation and error metrics
-- **Model Weights**: Spatial patterns of feature importance
-- **Cross-Validation Performance**: Robust evaluation across data splits
+### R dependencies
 
-Output files are saved in `results/Ridge_766/` with metrics including:
-- Correlation between predicted and actual activation
-- Mean Absolute Error (MAE)
-- R-squared values
-- Normalized Root Mean Square Error (NRMSE)
+`tidyverse`, `ggpubr`, `ggridges`, `ggdist`, `ggsci`, `ggstatsplot`, `rstatix`, `viridis`, `hrbrthemes`, `geomtextpath`, `cowplot`, `see`, `svglite`, `showtext`.
 
 ## Requirements
 
-### System Requirements
-- Python 3.9+
-- 16GB+ RAM recommended
-- Multi-core CPU (for parallel processing)
+- Python 3.9+, 16 GB+ RAM (parallel CV is memory-bound)
+- R 4.2+ for the plotting pipeline
+- Dependencies: see `requirements.txt` (Python) and the section above (R)
 
-### Dependencies
-See `requirements.txt` for complete list:
-- pandas >= 1.5.0
-- numpy >= 1.20.0
-- scipy >= 1.8.0
-- scikit-learn >= 1.1.0
-- matplotlib >= 3.5.0
-- seaborn >= 0.11.0
+## Data Access
 
-## Usage Examples
+Raw neuroimaging data are not included in the repository (HCP data-sharing terms). To reproduce results you need:
 
-### Basic Prediction
-```python
-# Run with default parameters
-cd src && python RidgeVert.py
-```
+1. **HCP language-task activation maps** (preprocessed)
+2. **PAC feature data** — functional, structural, diffusion at vertex level
+3. **Subject metadata** — subject IDs and sort indices
+4. **Pre-aggregated CSV statistics** for the R pipeline (drop into `raw/figs_csv/`)
 
-### Custom Feature Combination
-```python
-# Modify features in RidgeVert.py
-features_all = {
-    'FCMap': ['fisherZ'],
-    'Structs': ['area', 'thick', 'myelin', 'NDI', 'ODI', 'ISO'],
-    'Combined': ['fisherZ', 'area', 'thick', 'myelin']
-}
-```
-
-## Data Requirements
-
-Due to data sharing restrictions, neuroimaging data files are not included in this repository. To run the analysis, you need:
-
-1. **HCP Language Task Data**: Preprocessed activation maps
-2. **PAC Feature Data**: Extracted functional and structural features
-3. **Subject Metadata**: Subject IDs and sorting indices
-
-Contact the authors for data access procedures following HCP data sharing policies.
+Contact the authors for access procedures aligned with HCP data-sharing policy.
 
 ## Citation
 
-If you use this code in your research, please cite:
-
 ```bibtex
 @misc{ac-activation-prediction,
-  title={AC-Activation-Prediction: Ridge Regression for Auditory Cortex Activation Prediction},
-  author={Your Name},
-  year={2025},
-  url={https://github.com/junhaols/AC-Activation-Prediction}
+  title  = {AC-Activation-Prediction: Ridge Regression for Auditory Cortex Activation Prediction},
+  author = {Luo, Junhao},
+  year   = {2026},
+  url    = {https://github.com/junhaols/AC-Activation-Prediction},
+  note   = {v1.0.0}
 }
 ```
 
 ## License
 
-This project is licensed under the MIT License - see the LICENSE file for details.
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
+MIT — see `LICENSE`.
 
 ## Contact
 
-For questions about the code or methodology, please open an issue or contact the authors (junhaol@mail.bnu.edu.cn).
+Issues and pull requests are welcome. For other questions: `junhaol@mail.bnu.edu.cn`.
